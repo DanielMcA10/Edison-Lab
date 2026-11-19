@@ -69,7 +69,7 @@ function labInit(){
   if(S.seed<PRE.length){for(let i=S.seed;i<PRE.length;i++)S.decks.push(freshDeck(PRE[i],i));S.seed=PRE.length;saveS(false)}
   phLoad().then(()=>{refreshSelects();if(TAB!=='duel')renderLab()});refreshSelects();drawTabs();showTab('duel');initRemote()}
 function drawTabs(){
-  const T=[['duel','Duel','<circle cx="12" cy="12" r="8"/><path d="M10 9l5 3-5 3z"/>'],['decks','Decks','<rect x="5" y="4" width="10" height="15" rx="2"/><path d="M9 8h10v11H9"/>'],['lib','Library','<path d="M4 5h16M4 12h16M4 19h16"/>']];
+  const T=[['duel','Duel','<circle cx="12" cy="12" r="8"/><path d="M10 9l5 3-5 3z"/>'],['decks','Decks','<rect x="5" y="4" width="10" height="15" rx="2"/><path d="M9 8h10v11H9"/>'],['lib','Library','<path d="M4 5h16M4 12h16M4 19h16"/>'],['binder','Binder','<path d="M5 4h12a2 2 0 012 2v14H7a2 2 0 01-2-2z"/><path d="M9 4v16M12 9h4M12 13h4"/>']];
   $('tabs').innerHTML=T.map(([k,l,p])=>'<button data-tab="'+k+'" class="'+(TAB===k?'on':'')+'"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+p+'</svg>'+l+'</button>').join('')}
 function showTab(t){
   TAB=t;PICK=null;drawTabs();
@@ -78,7 +78,7 @@ function showTab(t){
   if(inGame){$('lab').style.display='none';return}
   $('setup').style.display=t==='duel'?'block':'none';
   $('lab').style.display=t==='duel'?'none':'flex';
-  if(t==='decks'){LVIEW='decks'}else if(t==='lib'){LVIEW='lib'}
+  if(t==='decks'){LVIEW='decks'}else if(t==='lib'){LVIEW='lib'}else if(t==='binder'){LVIEW='binder'}
   if(t!=='duel')renderLab();
   refreshSelects()}
 $('tabs')&&($('tabs').onclick=e=>{const b=e.target.closest('[data-tab]');if(b)showTab(b.dataset.tab)});
@@ -114,6 +114,7 @@ function rowHTML(c){
 function listHTML(list){return list.slice(0,SHOWN).map(rowHTML).join('')+(list.length>SHOWN?'<button class="more" data-act="more">Show more ('+(list.length-SHOWN)+')</button>':'')+(list.length?'':'<div class="mut" style="padding:20px;text-align:center">No cards match.</div>')}
 function renderLab(){
   const el=$('lab');if(!S)return;
+  if(LVIEW==='binder'){renderBinder();return}
   if(LVIEW==='deck'){renderEditor();return}
   if(LVIEW==='decks'&&!PICK){renderDecks();return}
   const list=filtered(),chips=activeChips(),dk=ldeck();
@@ -249,20 +250,20 @@ let phOK=false;
 async function phLoad(){try{PHON=localStorage.getItem('edison-ph-on')!=='0'}catch(e){}
   try{const db=await phDB(),st=db.transaction('p').objectStore('p');const keys=await new Promise(r=>{const q=st.getAllKeys();q.onsuccess=()=>r(q.result)}),vals=await new Promise(r=>{const q=st.getAll();q.onsuccess=()=>r(q.result)});
     keys.forEach((k,i)=>{PH[k]=URL.createObjectURL(vals[i])});phOK=true}catch(e){phOK=false}}
-async function phPut(id,blob){const db=await phDB();await new Promise((res,rej)=>{const t=db.transaction('p','readwrite');t.objectStore('p').put(blob,id);t.oncomplete=res;t.onerror=()=>rej(t.error)});if(PH[id])URL.revokeObjectURL(PH[id]);PH[id]=URL.createObjectURL(blob)}
+async function phPut(id,blob){const db=await phDB();await new Promise((res,rej)=>{const t=db.transaction('p','readwrite');t.objectStore('p').put(blob,id);t.oncomplete=res;t.onerror=()=>rej(t.error)});if(PH[id])URL.revokeObjectURL(PH[id]);PH[id]=URL.createObjectURL(blob);(S.pt||(S.pt={}))[id]=Date.now();saveS()}
 async function phDel(id){const db=await phDB();await new Promise(res=>{const t=db.transaction('p','readwrite');t.objectStore('p').delete(id);t.oncomplete=res});if(PH[id])URL.revokeObjectURL(PH[id]);delete PH[id]}
 function pickFile(capture,cb){const i=document.createElement('input');i.type='file';i.accept='image/*';if(capture)i.setAttribute('capture','environment');i.onchange=()=>{if(i.files[0])cb(i.files[0])};i.click()}
 function cropUI(id,file,onSaved,onBack){
   const c=byId(id),W=230,H=335,img=new Image(),url=URL.createObjectURL(file);
   img.onload=()=>{const st={z:1,x:0,y:0,r:0};
-    showSheet('<h3>'+esc(c.n)+'</h3><div class="sub">Drag to position the card inside the frame. Zoom so the card fills it.</div><canvas id="crop" width="'+W+'" height="'+H+'"></canvas><input type="range" id="zm" min="0.5" max="3" step="0.01" value="1" style="width:100%;margin:10px 0"><div class="btns"><button class="pri" id="pSave">Save photo</button><button id="pRot">Rotate ↻</button><button id="pBack">Back</button></div>');
+    showSheet('<h3>'+esc(c.n)+'</h3><div class="sub">Drag to position the card inside the frame. Zoom so the card fills it.</div><canvas id="crop" width="'+W+'" height="'+H+'"></canvas><input type="range" id="zm" min="0.5" max="3" step="0.01" value="1" style="width:100%;margin:10px 0 4px"><div class="orow"><span>Add to binder as</span><select id="prar"><option value="">— don\'t add —</option>'+rarOpts(S.lastRar||'Common')+'</select></div><div class="btns"><button class="pri" id="pSave">Save photo</button><button id="pRot">Rotate ↻</button><button id="pBack">Back</button></div>');
     const cv=$('crop'),cx=cv.getContext('2d');
     const render=(ctx,w,h,k)=>{ctx.fillStyle='#000';ctx.fillRect(0,0,w,h);ctx.save();ctx.translate(w/2+st.x*k,h/2+st.y*k);ctx.rotate(st.r*Math.PI/2);const sw=st.r%2?img.height:img.width,sh=st.r%2?img.width:img.height,s=Math.max(w/sw,h/sh)*st.z;ctx.drawImage(img,-img.width*s/2,-img.height*s/2,img.width*s,img.height*s);ctx.restore()};
     const draw=()=>render(cx,W,H,1);draw();
     let dr=null;cv.onpointerdown=e=>{dr={x:e.clientX,y:e.clientY};cv.setPointerCapture(e.pointerId)};cv.onpointermove=e=>{if(!dr)return;st.x+=e.clientX-dr.x;st.y+=e.clientY-dr.y;dr={x:e.clientX,y:e.clientY};draw()};cv.onpointerup=()=>dr=null;
     $('zm').oninput=e=>{st.z=+e.target.value;draw()};$('pRot').onclick=()=>{st.r=(st.r+1)%4;draw()};
     $('pBack').onclick=()=>{URL.revokeObjectURL(url);onBack()};
-    $('pSave').onclick=()=>{const o=document.createElement('canvas');o.width=354;o.height=516;render(o.getContext('2d'),354,516,354/W);o.toBlob(async b=>{try{await phPut(id,b);URL.revokeObjectURL(url);toast('Photo saved');onSaved()}catch(e){toast('Could not save photo (storage blocked)')}},'image/jpeg',.86)}};
+    $('pSave').onclick=()=>{const o=document.createElement('canvas');o.width=354;o.height=516;render(o.getContext('2d'),354,516,354/W);const rv=$('prar').value;if(rv){S.lastRar=rv;if(!bindHas(id))addEntry(id,rv,'',1)}o.toBlob(async b=>{try{await phPut(id,b);URL.revokeObjectURL(url);toast('Photo saved');onSaved()}catch(e){toast('Could not save photo (storage blocked)')}},'image/jpeg',.86)}};
   img.onerror=()=>toast('Could not read that image');img.src=url}
 function photoFlow(id,after){const c=byId(id);
   showSheet('<h3>Photo: '+esc(c.n)+'</h3>'+(PH[id]?'<img class="bigph" src="'+PH[id]+'">':'<div class="sub">Photograph the whole card flat, in good light. The photo replaces the placeholder card face in duels.</div>')+'<div class="btns"><button class="pri" id="pCam">📷 Take photo</button><button id="pGal">Choose from gallery</button>'+(PH[id]?'<button class="bad" id="pDel">Remove photo</button>':'')+'<button data-close>Close</button></div>');
@@ -282,3 +283,94 @@ function photoMenu(){const n=Object.keys(PH).length,d=ldeck();
   $('phon').onchange=e=>{PHON=e.target.checked;try{localStorage.setItem('edison-ph-on',PHON?'1':'0')}catch(x){}renderLab()};
   if($('phq'))$('phq').onclick=()=>queueFlow(miss,0);
   $('phdel').onclick=()=>{showSheet('<h3>Delete all '+n+' photos?</h3><div class="sub">This cannot be undone.</div><div class="btns"><button class="bad" id="phdok">Delete</button><button data-close>Cancel</button></div>');$('phdok').onclick=async()=>{for(const k of Object.keys(PH))await phDel(k);closeSheet();renderLab();toast('Photos deleted')}}}
+
+/* ---------- binder (manual slots, many copies/rarities) ---------- */
+const RG=[['Basic',[['Common','C','#9aa4b8',0],['Short Print','SP','#b7c0d4',0],['Super Short Print','SSP','#c9d1e0',0],['Rare','R','#dfe4ee',0],['Super Rare','SR','#5ab0ff',1],['Ultra Rare','UR','#ffc83d',1],['Ultimate Rare','UtR','#b184ff',1]]],
+ ['Secret',[['Secret Rare','ScR','#ff6ac1',1],['Ultra Secret Rare','USR','#ff9ad8',1],['Prismatic Secret Rare','PSR','#ff7bf0',1],['Platinum Rare','PlR','#cfe3ff',1],['Platinum Secret Rare','PlSR','#e6efff',1],['Extra Secret Rare','ESR','#ff5c8a',1],['Quarter Century Secret Rare','QCSR','#ffd1f0',1]]],
+ ['Gold / Ghost / Special',[['Gold Rare','GlR','#ffb300',1],['Gold Secret Rare','GSR','#ffcf4a',1],['Premium Gold Rare','PGR','#ffc233',1],['Ghost Rare','GR','#f4f6ff',1],['Ghost/Gold Rare','GGR','#fff1b8',1],['Starlight Rare','StR','#a6f0ff',1],["Collector's Rare",'CR','#b0ffd9',1],["Prismatic Collector's Rare",'PCR','#7dffe0',1]]],
+ ['Parallel',[['Parallel Rare','PR','#3de0ff',1],['Normal Parallel Rare','NPR','#6fe3ff',1],['Super Parallel Rare','SPR','#4aa8ff',1],['Ultra Parallel Rare','UPR','#ffd04a',1],['Secret Parallel Rare','ScPR','#ff8ad0',1],['Duel Terminal Normal Parallel Rare','DNPR','#79e8ff',1],['Duel Terminal Rare Parallel Rare','DRPR','#9ad8ff',1],['Duel Terminal Super Parallel Rare','DSPR','#6aa8ff',1],['Duel Terminal Ultra Parallel Rare','DUPR','#ffcf5a',1]]],
+ ['Foil types',[['Mosaic Rare','MsR','#9ff0ff',1],['Shatterfoil Rare','ShR','#b4a0ff',1],['Starfoil Rare','SfR','#9ac4ff',1],['Holographic Rare','HR','#c9a0ff',1],['Millennium Rare','MlR','#ffd25a',1],['Millennium Super Rare','MSR','#6cc4ff',1],['Millennium Ultra Rare','MUR','#ffcc66',1],['Millennium Gold Rare','MGR','#ffbb00',1]]],
+ ['Promo / other',[['Promo (Normal)','PRM','#9aa4b8',0],['Promo (Foil)','PRF','#e0e8ff',1],['Tournament Prize','TP','#ffb36b',1],['Oversized','OS','#9aa4b8',0],['Misprint / Error','ERR','#ff6b7d',0],['Other','•','#8f9bb3',0]]]];
+const RMAP={};RG.forEach(g=>g[1].forEach(r=>RMAP[r[0]]=r));
+const rc=r=>RMAP[r]||[r,(r||'').replace(/[^A-Za-z0-9]/g,'').slice(0,3).toUpperCase()||'•','#8f9bb3',0];
+const EDS=['','1st Edition','Unlimited','Limited Edition'],EDA={'1st Edition':'1st','Unlimited':'Unl','Limited Edition':'Ltd'};
+function rarOpts(sel){const known=!sel||RMAP[sel];return RG.map(g=>'<optgroup label="'+g[0]+'">'+g[1].map(r=>'<option '+(r[0]===sel?'selected':'')+'>'+esc(r[0])+'</option>').join('')+'</optgroup>').join('')+(known?'':'<optgroup label="Custom"><option selected>'+esc(sel)+'</option></optgroup>')+'<option value="__custom">Custom…</option>'}
+let BPAGE=0,BQ='',BHL=null,BARR=false,BHOLD=null,BMODE='swap';
+function bindInit(){
+  if(S.bind&&S.bind.slots)return;
+  const ids=D.filter(c=>PH[c.id]);const slots=ids.map(c=>({u:'e'+c.id,id:c.id,r:(S.rarity||{})[c.id]||'',e:'',n:1,t:(S.pt||{})[c.id]||0}));
+  S.bind={v:1,slots};padSlots();if(ids.length)saveS()}
+function padSlots(){const s=S.bind.slots;while(s.length%9||s.length<9)s.push(null)}
+const bindHas=id=>S.bind&&S.bind.slots.some(x=>x&&x.id===id);
+let uidn=0;const newUid=()=>'e'+Date.now().toString(36)+(uidn++);
+function addEntry(id,r,e,n,at){bindInit();const s=S.bind.slots;let i=(at!=null&&!s[at])?at:s.findIndex(x=>!x);if(i<0){i=s.length;s.push(...Array(9).fill(null))}
+  s[i]={u:newUid(),id,r:r||'',e:e||'',n:n||1,t:Date.now()};padSlots();saveS();return i}
+function pocket(x,i){
+  if(!x)return'<div class="pocket empty" data-si="'+i+'">'+(BARR&&BHOLD!=null?'<b class="drop">⬇</b>':'<b class="plus">+</b>')+'</div>';
+  const t=x.r?rc(x.r):null,c=byId(x.id)||{};
+  return'<div class="pocket'+(t&&t[3]?' foil':'')+(BHL===i?' hl':'')+(BHOLD===i?' held':'')+'" data-si="'+i+'">'+(PH[x.id]?'<img src="'+PH[x.id]+'" alt="">':tile({code:x.id},false))+(t?'<span class="rtag" style="background:'+t[2]+'">'+esc(t[1])+'</span>':'')+(x.n>1?'<span class="qty">×'+x.n+'</span>':'')+(x.e?'<span class="ed">'+EDA[x.e]+'</span>':'')+'</div>'}
+function renderBinder(){
+  bindInit();padSlots();const s=S.bind.slots,pages=s.length/9;if(BPAGE>=pages)BPAGE=pages-1;if(BPAGE<0)BPAGE=0;
+  const ents=s.filter(Boolean),copies=ents.reduce((a,x)=>a+x.n,0);
+  let h='<div class="lhead"><div class="lt2"><b style="font-size:18px">Binder</b><div class="mut s">'+ents.length+' pocket'+(ents.length===1?'':'s')+' · '+copies+' cop'+(copies===1?'y':'ies')+' · '+pages+' page'+(pages===1?'':'s')+'</div></div><button class="'+(BARR?'pri':'')+'" data-bb="arr">'+(BARR?'Done':'↕ Arrange')+'</button><button class="pri" data-bb="add">＋</button><button data-bb="tools">⋯</button></div>';
+  h+='<div class="lsearch" style="position:relative"><input id="bq" placeholder="Find a card in the binder…" value="'+esc(BQ)+'"><div id="bres" class="bres"></div></div>';
+  if(BARR)h+='<div class="barr">'+(BHOLD!=null?'Holding <b>'+esc(byId(s[BHOLD].id).n)+'</b> — turn pages with ‹ ›, then tap where it goes. ':'Tap a card to pick it up, then tap its new spot. ')+'<span class="seg4"><button data-bm="swap" class="'+(BMODE==='swap'?'on':'')+'">Swap</button><button data-bm="ins" class="'+(BMODE==='ins'?'on':'')+'">Insert</button></span>'+(BHOLD!=null?'<button data-bb="drop">Cancel</button>':'')+'</div>';
+  h+='<div class="bwrap"><div class="bpage" id="bpage">'+s.slice(BPAGE*9,BPAGE*9+9).map((x,k)=>pocket(x,BPAGE*9+k)).join('')+'</div></div>';
+  h+='<div class="bnav"><button class="sq" data-bn="-1" '+(BPAGE?'':'disabled')+'>‹</button><button id="bjump" class="bpg">Page '+(BPAGE+1)+' / '+pages+'</button><button class="sq" data-bn="1" '+(BPAGE<pages-1?'':'disabled')+'>›</button></div>';
+  $('lab').innerHTML=h;wireBinder()}
+function bFlip(d){const n=BPAGE+d,pages=S.bind.slots.length/9;if(n<0||n>=pages)return;BPAGE=n;BHL=null;renderBinder();const e=$('bpage');if(e){e.classList.add(d>0?'fl':'fr');setTimeout(()=>e.classList.remove('fl','fr'),260)}}
+function wireBinder(){
+  const s=S.bind.slots,pages=s.length/9,q=$('bq');
+  const matches=()=>{const t=BQ.trim().toLowerCase().split(/\s+/).filter(Boolean);if(!t.length)return[];const r=[];s.forEach((x,i)=>{if(x){const c=byId(x.id);if(c&&t.every(w=>c.nl.includes(w)))r.push({x,i,c})}});return r.slice(0,10)};
+  const go=m=>{BPAGE=Math.floor(m.i/9);BHL=m.i;BQ='';renderBinder();const h=document.querySelector('.pocket.hl');if(h)h.scrollIntoView({block:'center',behavior:'smooth'});setTimeout(()=>{BHL=null;const z=document.querySelector('.pocket.hl');if(z)z.classList.remove('hl')},2400)};
+  const showRes=()=>{const m=matches(),el=$('bres');if(!el)return;el.innerHTML=m.length?m.map((r,k)=>'<div class="bri" data-bk="'+k+'">'+(PH[r.c.id]?'<img src="'+PH[r.c.id]+'">':'<span class="bth"></span>')+'<span><b>'+esc(r.c.n)+'</b><i>Page '+(Math.floor(r.i/9)+1)+' · slot '+(r.i%9+1)+(r.x.r?' · '+esc(r.x.r):'')+(r.x.n>1?' · ×'+r.x.n:'')+'</i></span></div>').join(''):(BQ.trim()?'<div class="bri"><span>No match in binder</span></div>':'');el.style.display=el.innerHTML?'block':'none';el.querySelectorAll('[data-bk]').forEach(r=>r.onclick=()=>go(m[+r.dataset.bk]))};
+  q.oninput=e=>{BQ=e.target.value;showRes()};q.onkeydown=e=>{if(e.key==='Enter'){const m=matches();if(m[0])go(m[0])}};if(BQ)showRes();
+  document.querySelectorAll('[data-bn]').forEach(b=>b.onclick=()=>bFlip(+b.dataset.bn));
+  document.querySelectorAll('[data-bm]').forEach(b=>b.onclick=()=>{BMODE=b.dataset.bm;renderBinder()});
+  document.querySelectorAll('[data-bb]').forEach(b=>b.onclick=()=>{const k=b.dataset.bb;if(k==='arr'){BARR=!BARR;BHOLD=null;renderBinder()}else if(k==='add')addFlow(null);else if(k==='tools')binderTools();else if(k==='drop'){BHOLD=null;renderBinder()}});
+  const bj=$('bjump');if(bj)bj.onclick=()=>{showSheet('<h3>Go to page</h3><div class="sub">1 – '+pages+'</div><input id="pgn" type="number" inputmode="numeric" min="1" max="'+pages+'" value="'+(BPAGE+1)+'"><div class="btns"><button class="pri" id="pgok">Go</button><button data-close>Cancel</button></div>');$('pgok').onclick=()=>{BPAGE=Math.max(0,Math.min(pages-1,(+$('pgn').value||1)-1));closeSheet();renderBinder()}};
+  const bp=$('bpage');let sx=null,sy=null;bp.ontouchstart=e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY};bp.ontouchend=e=>{if(sx==null)return;const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;sx=null;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.5)bFlip(dx<0?1:-1)};
+  bp.onclick=e=>{const p=e.target.closest('[data-si]');if(p)pocketTap(+p.dataset.si)}}
+function pocketTap(i){const s=S.bind.slots,x=s[i];
+  if(BARR){if(BHOLD==null){if(x){BHOLD=i;renderBinder()}return}
+    if(i===BHOLD){BHOLD=null;renderBinder();return}
+    const e=s[BHOLD];
+    if(!x||BMODE==='swap'){s[BHOLD]=x||null;s[i]=e}else{s.splice(BHOLD,1);s.splice(i>BHOLD?i-1:i,0,e)}
+    BHL=null;BHOLD=null;padSlots();saveS();renderBinder();return}
+  if(!x)addFlow(i);else entrySheet(i)}
+function entrySheet(i){const s=S.bind.slots,x=s[i],c=byId(x.id);
+  showSheet((PH[x.id]?'<img class="bigph" src="'+PH[x.id]+'">':'')+'<div class="detail" style="display:block"><b style="font-size:16px;color:#fff">'+esc(c.n)+'</b> '+limBadge(c)+'<div class="mut s">'+subLine(c)+'</div><div class="mut s">Page '+(Math.floor(i/9)+1)+' · slot '+(i%9+1)+'</div></div>'+
+   '<div class="orow"><span>Rarity</span><select id="erar"><option value="">— none —</option>'+rarOpts(x.r)+'</select></div><div class="orow"><span>Edition</span><select id="eed">'+EDS.map(e=>'<option value="'+e+'" '+(e===x.e?'selected':'')+'>'+(e||'— none —')+'</option>').join('')+'</select></div><div class="orow"><span>Copies in this pocket</span><span><button class="sq" id="eq-">−</button> <b id="eqn">'+x.n+'</b> <button class="sq pri" id="eq+">+</button></span></div><div class="sub">'+esc(c.x||'')+'</div>'+
+   '<div class="btns"><button id="emove">↕ Move</button><button id="eanother">＋ Another rarity / copy</button><button id="ephoto">📷 Photo…</button><button class="bad" id="erem">Remove from binder</button><button data-close>Close</button></div>');
+  const upd=()=>{saveS();renderBinder()};
+  $('erar').onchange=e=>{if(e.target.value==='__custom'){showSheet('<h3>Custom rarity</h3><input id="crn" placeholder="e.g. Ultra Rare (Alt Art)"><div class="btns"><button class="pri" id="crok">Save</button><button data-close>Cancel</button></div>');$('crok').onclick=()=>{const v=$('crn').value.trim();if(v){x.r=v;S.lastRar=v}closeSheet();upd()};return}x.r=e.target.value;if(x.r)S.lastRar=x.r;upd()};
+  $('eed').onchange=e=>{x.e=e.target.value;upd()};
+  $('eq-').onclick=()=>{if(x.n>1){x.n--;$('eqn').textContent=x.n;upd()}};$('eq+').onclick=()=>{x.n++;$('eqn').textContent=x.n;upd()};
+  $('emove').onclick=()=>{closeSheet();BARR=true;BHOLD=i;renderBinder()};
+  $('eanother').onclick=()=>{addFlow(null,x.id)};
+  $('ephoto').onclick=()=>photoFlow(x.id,()=>renderBinder());
+  $('erem').onclick=()=>{showSheet('<h3>Remove from binder?</h3><div class="sub">'+esc(c.n)+(x.r?' ('+esc(x.r)+')':'')+(x.n>1?' ×'+x.n:'')+' — its pocket becomes empty. The card photo is kept.</div><div class="btns"><button class="bad" id="remok">Remove</button><button data-close>Cancel</button></div>');$('remok').onclick=()=>{s[i]=null;saveS();closeSheet();renderBinder()}}}
+function addFlow(at,presetId){
+  const form=id=>{const c=byId(id),last=S.lastRar||'Common';
+    showSheet('<h3>Add to binder</h3><div class="detail" style="display:block"><b style="color:#fff">'+esc(c.n)+'</b><div class="mut s">'+subLine(c)+'</div></div><div class="orow"><span>Rarity</span><select id="arar"><option value="">— none —</option>'+rarOpts(last)+'</select></div><div class="orow"><span>Edition</span><select id="aed">'+EDS.map(e=>'<option value="'+e+'">'+(e||'— none —')+'</option>').join('')+'</select></div><div class="orow"><span>Copies</span><span><button class="sq" id="an-">−</button> <b id="ann">1</b> <button class="sq pri" id="an+">+</button></div><div class="btns"><button class="pri" id="aok">Add to binder</button><button data-close>Cancel</button></div>');
+    let n=1;$('an-').onclick=()=>{if(n>1)$('ann').textContent=--n};$('an+').onclick=()=>$('ann').textContent=++n;
+    const fin=r=>{const i=addEntry(id,r,$('aed').value,n,at);if(r)S.lastRar=r;saveS();BPAGE=Math.floor(i/9);BHL=i;closeSheet();renderBinder();setTimeout(()=>{BHL=null;const z=document.querySelector('.pocket.hl');if(z)z.classList.remove('hl')},2400)};
+    $('aok').onclick=()=>{const r=$('arar').value;if(r==='__custom'){showSheet('<h3>Custom rarity</h3><input id="crn" placeholder="e.g. Ultra Rare (Alt Art)"><div class="btns"><button class="pri" id="crok">Add</button><button data-close>Cancel</button></div>');$('crok').onclick=()=>{const v=$('crn').value.trim();if(v)fin(v)}}else fin(r)}};
+  if(presetId){form(presetId);return}
+  showSheet('<h3>Add a card</h3><input id="aq" placeholder="Search card name…" autocomplete="off"><div id="ares" style="margin-top:8px"></div><div class="btns"><button data-close>Cancel</button></div>');
+  $('aq').oninput=e=>{const t=e.target.value.trim().toLowerCase().split(/\s+/).filter(Boolean);if(!t.length){$('ares').innerHTML='';return}
+    const res=D.filter(c=>t.every(w=>c.nl.includes(w))).slice(0,25);$('ares').innerHTML=res.map(c=>'<div class="lrow" data-ac="'+c.id+'" style="border-left-color:'+colorOf(c.id)+'"><div class="lt">'+tile({code:c.id},false)+'</div><div class="lx"><b>'+esc(c.n)+'</b><div class="mut s">'+subLine(c)+'</div></div></div>').join('')||'<div class="mut s">No cards found</div>';
+    $('ares').querySelectorAll('[data-ac]').forEach(r=>r.onclick=()=>form(+r.dataset.ac))}}
+function binderTools(){const s=S.bind.slots,pages=s.length/9,empty=s.slice(BPAGE*9,BPAGE*9+9).every(x=>!x),miss=D.filter(c=>PH[c.id]&&!bindHas(c.id)).length;
+  showSheet('<h3>Binder tools</h3><div class="btns"><button id="t1">＋ Add empty page at end</button><button id="t2">Insert empty page after page '+(BPAGE+1)+'</button><button id="t3" '+(empty&&pages>1?'':'disabled')+'>Delete page '+(BPAGE+1)+(empty?'':' (must be empty)')+'</button><button id="t4">Tidy up — close empty gaps</button><button id="t5">Sort whole binder…</button><button id="t6" '+(miss?'':'disabled')+'>Add photographed cards not in binder ('+miss+')</button><button id="t7">📷 Card photos…</button><button data-close>Close</button></div>');
+  const done=m=>{saveS();closeSheet();renderBinder();if(m)toast(m)};
+  $('t1').onclick=()=>{s.push(...Array(9).fill(null));BPAGE=s.length/9-1;done()};
+  $('t2').onclick=()=>{s.splice((BPAGE+1)*9,0,...Array(9).fill(null));BPAGE++;done()};
+  $('t3').onclick=()=>{s.splice(BPAGE*9,9);padSlots();done('Page deleted')};
+  $('t4').onclick=()=>{S.bind.slots=s.filter(Boolean);padSlots();BPAGE=0;done('Gaps closed')};
+  $('t6').onclick=()=>{D.filter(c=>PH[c.id]&&!bindHas(c.id)).forEach(c=>addEntry(c.id,S.lastRar||'',''  ,1));done('Added')};
+  $('t7').onclick=()=>photoMenu();
+  $('t5').onclick=()=>{showSheet('<h3>Sort whole binder</h3><div class="sub">This rearranges every pocket and closes gaps. You can still move cards by hand afterwards.</div><div class="btns"><button data-so="name">By name</button><button data-so="type">By card type</button><button data-so="rarity">By rarity</button><button data-so="new">Newest first</button><button data-close>Cancel</button></div>');
+    $('sheet').querySelectorAll('[data-so]').forEach(b=>b.onclick=()=>{const k=b.dataset.so,all=s.filter(Boolean),ro=[].concat(...RG.map(g=>g[1].map(r=>r[0]))),to=e=>{const c=byId(e.id);return c.cat==='Monster'?(c.ex?1:0):c.cat==='Spell'?2:3},nm2=e=>byId(e.id).nl;
+      all.sort((a,b)=>k==='type'?to(a)-to(b)||nm2(a).localeCompare(nm2(b)):k==='rarity'?((b.r?ro.length-Math.max(0,ro.indexOf(b.r)):-1)-(a.r?ro.length-Math.max(0,ro.indexOf(a.r)):-1))||nm2(a).localeCompare(nm2(b)):k==='new'?(b.t||0)-(a.t||0):nm2(a).localeCompare(nm2(b)));
+      S.bind.slots=all;padSlots();BPAGE=0;done('Sorted')})}}

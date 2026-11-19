@@ -204,6 +204,33 @@ select,input{background:#1b2347;border-color:#3b4b8a}
 .item.on{background:#16473a;border-color:#3df0a0}
 .tile.photo{background-size:cover;background-position:center;background-color:#000;border-color:#000}.tile.photo.mine{border-color:#35d0ff}.bigph{display:block;width:62%;max-width:230px;margin:0 auto 12px;border-radius:8px;box-shadow:0 6px 24px #000a}
 #crop{display:block;margin:0 auto;border-radius:6px;touch-action:none;background:#000;border:1px solid var(--line)}
+/* binder */
+#tabs button{font-size:10.5px}
+.bwrap{flex:1;min-height:0;overflow:auto;padding:4px 12px 6px}
+.bpage{max-width:440px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:14px 12px 14px 26px;border-radius:14px;background:linear-gradient(135deg,#2b1d17,#17100d);border:1px solid #4a3329;box-shadow:0 8px 26px #000a,inset 0 0 40px #0008;position:relative}
+.bpage::before{content:"";position:absolute;left:7px;top:12px;bottom:12px;width:10px;background:radial-gradient(circle at 50% 50%,#d9d9e6 0 3px,#6b6b78 3.5px 4.5px,transparent 5px) 0 0/10px 34px repeat-y;opacity:.85}
+.pocket{position:relative;aspect-ratio:59/86;border-radius:5px;background:#0a0d1c;border:1px solid #ffffff2e;overflow:hidden;box-shadow:inset 0 0 0 1px #0007,0 1px 4px #000a}
+.pocket.empty{background:#ffffff08;border-style:dashed;border-color:#ffffff1a;box-shadow:none}
+.pocket img{width:100%;height:100%;object-fit:cover;display:block}
+.pocket::after{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 35%,#ffffff22 48%,transparent 60%);pointer-events:none}
+.pocket.foil::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(120deg,#ff6ac11f,#ffd75e26,#6fe3ff26,#8f7bff26,#ff6ac11f);background-size:300% 300%;animation:foil 5s linear infinite;mix-blend-mode:screen;pointer-events:none}
+@keyframes foil{0%{background-position:0 0}100%{background-position:300% 300%}}
+.rtag{position:absolute;z-index:2;left:0;top:0;padding:1px 6px 2px 4px;font-size:10px;font-weight:900;color:#1a1200;border-radius:0 0 8px 0;box-shadow:0 1px 4px #0009}
+.pocket.hl{outline:3px solid #ffd75e;box-shadow:0 0 22px #ffd75e;animation:hlp .6s ease-in-out 3}
+@keyframes hlp{50%{transform:scale(1.07)}}
+.bnav{display:flex;align-items:center;justify-content:center;gap:12px;padding:8px 12px 10px}.bnav .bpg{min-width:130px}
+.bpage.fl{animation:fl .24s ease-out}.bpage.fr{animation:fr .24s ease-out}
+@keyframes fl{from{transform:translateX(40px);opacity:.3}}@keyframes fr{from{transform:translateX(-40px);opacity:.3}}
+.bres{display:none;position:absolute;left:0;right:0;top:100%;z-index:8;background:#10173a;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 30px #000c;margin-top:4px;max-height:300px;overflow:auto}
+.bri{display:flex;gap:10px;align-items:center;padding:7px 10px;border-bottom:1px solid #2d3a6b}.bri img{width:30px;height:44px;object-fit:cover;border-radius:3px}.bri span{display:flex;flex-direction:column}.bri i{font-style:normal;font-size:11px;color:var(--mut)}
+.pocket .tile{width:100%;height:100%;border:0;border-radius:0}.pocket .plus,.pocket .drop{font-size:26px;color:#ffffff40;position:absolute;inset:0;display:flex;align-items:center;justify-content:center}.pocket .drop{color:#3df0a0}
+.pocket.held{outline:3px solid #3df0a0;box-shadow:0 0 18px #3df0a0;transform:scale(.94);opacity:.8}
+.qty{position:absolute;z-index:2;right:0;bottom:0;background:#0b1230;color:#ffd75e;font-size:11px;font-weight:900;padding:1px 6px;border-radius:8px 0 0 0}
+.ed{position:absolute;z-index:2;left:0;bottom:0;background:#ffd75e;color:#2a1a00;font-size:9px;font-weight:900;padding:1px 5px;border-radius:0 8px 0 0}
+.barr{margin:0 12px 6px;padding:8px 10px;background:#16473a;border:1px solid #3df0a0;border-radius:10px;font-size:12px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.seg4{display:inline-flex;gap:4px}.seg4 button{padding:3px 10px;font-size:11px;border-radius:8px}.seg4 button.on{background:#3df0a0;color:#04281c;border-color:#3df0a0}
+.bri .bth{width:30px;height:44px;background:#222a3a;border-radius:3px;display:inline-block}
+.sheet select,#sheet select{max-width:62%}
 .peekbtn{float:right;font-size:12px;padding:5px 10px;margin:0 0 6px 8px}
 #peekbar{position:fixed;left:0;right:0;top:46px;display:none;justify-content:center;z-index:12;pointer-events:none}
 #peekbar button{pointer-events:auto;box-shadow:0 4px 14px #000a}
