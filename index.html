@@ -299,6 +299,13 @@ select,input{background:#1b2347;border-color:#3b4b8a}
 @keyframes shk1{0%,100%{transform:none}20%{transform:translateX(-3px)}50%{transform:translateX(3px)}80%{transform:translateX(-2px)}}
 @keyframes shk2{0%,100%{transform:none}15%{transform:translate(-7px,3px)}35%{transform:translate(6px,-3px)}55%{transform:translate(-5px,2px)}75%{transform:translate(4px,-2px)}}
 #field,#hand{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+
+#hand{display:block!important;overflow-x:auto!important;overflow-y:hidden!important;height:122px!important;touch-action:pan-x;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain}
+#hand::-webkit-scrollbar{display:none}
+#hin{display:flex;align-items:flex-end;height:100%;width:max-content;margin:0 auto;padding:16px 10px 0}
+#hand .hc:hover,#hand .hc:active{translate:0 -12px!important}
+#hand.scr{box-shadow:inset 14px 0 12px -12px #35d0ff55,inset -14px 0 12px -12px #35d0ff55}
+#tick{position:relative;z-index:5}#mid{position:relative;z-index:5}
 </style></head><body>
 <div id="app">
  <div id="setup">
@@ -584,9 +591,11 @@ function renderBoard(){
   renderPhase(b,me);
   // hand (fanned)
   {const hand=P[me].hand,n=hand.length,Wc=76,avail=Math.min(window.innerWidth,560)-20;
-   const step=n>1?Math.min(58,(avail-Wc)/(n-1)):0;
-   $('hand').innerHTML=n?hand.map((c,i)=>{const off=i-(n-1)/2,ang=off*Math.min(6.5,34/n),y=Math.abs(off)*Math.abs(off)*(n>6?1.8:2.8);
-     return'<div class="hc" data-hand="'+i+'" style="margin-left:'+(i?step-Wc:0)+'px;transform:translateY('+y.toFixed(1)+'px) rotate('+ang.toFixed(1)+'deg);z-index:'+i+'">'+tile(c,true)+'</div>'}).join(''):'<span style="color:var(--mut);align-self:center">Empty hand</span>';
+   const step=n>1?Math.max(54,Math.min(58,(avail-Wc)/(n-1))):0,big=n>5;
+   const hh=$('hand'),keep=hh.scrollLeft;
+   hh.innerHTML=n?'<div id="hin">'+hand.map((c,i)=>{const off=i-(n-1)/2,ang=big?0:off*Math.min(6.5,34/n),y=big?0:Math.abs(off)*Math.abs(off)*2.8;
+     return'<div class="hc" data-hand="'+i+'" style="margin-left:'+(i?step-Wc:0)+'px;transform:translateY('+y.toFixed(1)+'px) rotate('+ang.toFixed(1)+'deg);z-index:'+i+'">'+tile(c,true)+'</div>'}).join('')+'</div>':'<span style="color:var(--mut);margin:auto">Empty hand</span>';
+   hh.scrollLeft=keep;hh.classList.toggle('scr',n>5&&(Wc+(n-1)*step)>avail);
    const on=P[op].hand.length;
    $('ohand').innerHTML=Array.from({length:on},(_,i)=>{const off=i-(on-1)/2;return'<div class="ob" style="transform:rotate('+(-off*5).toFixed(1)+'deg)"></div>'}).join('')+'<span class="ocnt">'+on+'</span>'}
   highlight();
@@ -876,6 +885,18 @@ function bigCard(c,o={}){
     '<div class="bcface" style="--cc:'+colorOf(c.code)+'"><div class="bcn">'+esc(i.n||'')+'</div><div class="bcl">'+(mon&&i.lv?'★'.repeat(Math.min(i.lv,12)):esc(i.cat||''))+'</div><div class="bca">'+EYE+'</div><div class="bct">'+esc([i.sub,i.race].filter(Boolean).join(' / '))+'</div>'+(mon?'<div class="bcs"><span class="'+cmp(a,ba)+'">'+f(a)+'</span> / <span class="'+cmp(d,bd)+'">'+f(d)+'</span></div>':'')+'</div>';
   return'<div class="bigc'+(o.big?' lg':'')+'">'+face+'<div class="bcr"><b class="bcname">'+esc(i.n||'Token')+'</b><div class="bcline">'+esc([i.cat,i.sub,i.attr,i.race,i.lv?('Lv '+i.lv):''].filter(Boolean).join(' · '))+'</div>'+(mon?'<div class="bcst">ATK <span class="'+cmp(a,ba)+'">'+f(a)+'</span> &nbsp; DEF <span class="'+cmp(d,bd)+'">'+f(d)+'</span>'+((a!==ba||d!==bd)&&ba!=null?'<small> base '+f(ba)+'/'+f(bd)+'</small>':'')+'</div>':'')+(o.why?'<div class="why">'+esc(o.why)+'</div>':'')+'</div></div><div class="sub bctext">'+esc(i.x||'')+'</div>';
 }
+function condHint(c,me,op,loc){
+  const lightGy=me.gy.filter(x=>x&&CI[x.code]&&CI[x.code].cat==='Monster'&&CI[x.code].attr==='LIGHT').length,monGy=me.gy.filter(x=>x&&CI[x.code]&&CI[x.code].cat==='Monster').length;
+  const hand=me.hand.length-(loc===2?1:0);
+  switch(c.code){
+    case 16255442:if(hand<1)return'Beckoning Light needs at least 1 other card in your hand to discard.';
+      if(lightGy<hand)return'Beckoning Light discards your whole hand ('+hand+' card'+(hand===1?'':'s')+') and needs at least that many LIGHT monsters in your Graveyard — you have '+lightGy+'.';break;
+    case 83764718:if(!monGy&&!op.gy.some(x=>x&&CI[x.code]&&CI[x.code].cat==='Monster'))return'No monster in either Graveyard to revive.';break;
+    case 97077563:if(me.gy.filter(x=>x&&CI[x.code]&&CI[x.code].cat==='Monster').length<1)return'Call of the Haunted needs a monster in your Graveyard.';break;
+    case 70828912:if(!monGy)return'Premature Burial needs a monster in your Graveyard (and 800 LP).';break;
+    case 5318639:if(!me.sz.slice(0,5).some(Boolean)&&!op.sz.slice(0,5).some(Boolean))return'No Spell/Trap on the field to target.';break;
+  }
+  return''}
 function whyNot(c,con,loc,seq){
   const b=UI.board,s=UI.sel;if(!b||!c)return'';
   const i=CI[c.code]||{};
@@ -909,6 +930,7 @@ function whyNot(c,con,loc,seq){
     if(bat)return'Can’t attack now — it already attacked this turn, or a card effect stops it.';
     return'Attacks happen in the Battle Phase — tap BP above. It has no effect or position change available now.';
   }
+  const ch=condHint(c,me,b.players[1-con],loc);if(ch)return ch;
   if(loc===8)return i.cat==='Trap'?'A Set Trap is used in response to something (it also can’t be used the turn it was Set).':'Not activatable right now — conditions aren’t met, or it isn’t a Quick-Play.';
   if(loc===16||loc===32||loc===64)return'Nothing here can be activated right now.';
   return'';
@@ -970,6 +992,7 @@ function animateDiff(R,A,B){
   const nR=rectsNow();let any=0;
   for(const p of [0,1]){
     const a=A.players[p],b=B.players[p],mine=p===UI.human;
+    const drawIdx=mine?handGone(b.hand,a.hand):[];
     let gyD=b.gy.length-a.gy.length,rmD=b.rm.length-a.rm.length,hD=b.hand.length-a.hand.length,xD=b.extra.length-a.extra.length,dD=b.deck-a.deck;
     const handIdx=mine&&hD<0?handGone(a.hand,b.hand):[];
     const oh=R.ohand,ohR={left:oh.left+oh.width/2-12,top:oh.top,width:24,height:34};
@@ -977,6 +1000,7 @@ function animateDiff(R,A,B){
       if(hD<0){hD++;return mine?(R.hand[handIdx.shift()]||R.hand[0]):ohR}
       if(gyD<0){gyD++;return R['pile'+p+'g']}if(rmD<0){rmD++;return R['pile'+p+'r']}
       if(xD<0){xD++;return R['pile'+p+'x']}if(dD<0){dD++;return R['pile'+p+'d']}return null};
+    const src2=pp=>{if(dD<0){dD++;return R['pile'+pp+'d']}if(gyD<0){gyD++;return R['pile'+pp+'g']}if(rmD<0){rmD++;return R['pile'+pp+'r']}if(xD<0){xD++;return R['pile'+pp+'x']}return R['pile'+pp+'d']};
     const dst=()=>{ // where did a removed field card go?
       if(gyD>0){gyD--;return['g',nR['pile'+p+'g']]}if(rmD>0){rmD--;return['r',nR['pile'+p+'r']]}
       if(hD>0){hD--;return['h',mine?nR.hand[nR.hand.length-1]:nR.ohand]}
@@ -984,14 +1008,22 @@ function animateDiff(R,A,B){
     const zones=[];for(let i=0;i<5;i++)zones.push(['M'+i,a.mz[i],b.mz[i]]);for(let i=0;i<6;i++)zones.push([i===5?'F':'S'+i,a.sz[i],b.sz[i]]);
     for(const [z,x,y] of zones){
       const removed=x&&(!y||(x.code&&y.code&&x.code!==y.code)),added=y&&(!x||(x.code&&y.code&&x.code!==y.code));
-      if(removed){const from=R[p+z];if(from){const[k,to]=dst();any=1;if(k==='g')shatter(from,x.code);if(to)fly(x.code,from,to,{delay:k==='g'?90:0,dur:360,fade:true})}}
+      if(removed){const from=R[p+z];if(from){const[k,to]=dst();any=Math.max(any,450);if(k==='g')shatter(from,x.code);if(to)fly(x.code,from,to,{delay:k==='g'?90:0,dur:360,fade:true})}}
       if(added&&(y.code||y.pos)){const cell=document.querySelector('[data-z="'+p+z+'"]'),to=nR[p+z],from=src();
-        if(cell&&to&&from){any=1;const t=cell.querySelector('.tile');if(t)t.style.visibility='hidden';cell.classList.remove('pop');
+        if(cell&&to&&from){any=Math.max(any,400);const t=cell.querySelector('.tile');if(t)t.style.visibility='hidden';cell.classList.remove('pop');
           const fromHand=!!(R.hand&&(from===ohR||R.hand.includes(from)));
           fly(y.code,from,to,{dur:360,done:()=>{if(t)t.style.visibility='';cell.classList.add(fromHand?'flashN':'flashS');setTimeout(()=>cell.classList.remove('flashN','flashS'),650)}})}}
     }
+    // cards that arrived in hand (draws, add-to-hand): fly in from the deck / pile
+    if(hD>0){const hs=[...document.querySelectorAll('#hand .hc')];
+      for(let q=0;q<hD;q++){
+        const from=src2(p),idx=mine?drawIdx[drawIdx.length-hD+q]:null,to=mine?nR.hand[idx]:{left:nR.ohand.left+nR.ohand.width/2-12,top:nR.ohand.top,width:24,height:34};
+        if(!from||!to)continue;const el=mine&&idx!=null?hs[idx]:null,code=mine?(b.hand[idx]||{}).code:0,dl=q*130;
+        if(el)el.style.visibility='hidden';any=Math.max(any,dl+380);
+        fly(mine?code:0,from,to,{delay:dl,dur:380,done:()=>{if(el)el.style.visibility=''}});
+      }}
   }
-  LASTANIM=any?420:0;
+  LASTANIM=any?Math.min(any+40,1100):0;
 }
 
 $('coinOk').onclick=()=>{$('coin').style.display='none'};
