@@ -306,6 +306,7 @@ select,input{background:#1b2347;border-color:#3b4b8a}
 #hand .hc:hover,#hand .hc:active{translate:0 -12px!important}
 #hand.scr{box-shadow:inset 14px 0 12px -12px #35d0ff55,inset -14px 0 12px -12px #35d0ff55}
 #tick{position:relative;z-index:5}#mid{position:relative;z-index:5}
+#fx{pointer-events:auto!important;cursor:pointer}#skipfx{pointer-events:none!important}
 </style></head><body>
 <div id="app">
  <div id="setup">
@@ -514,17 +515,19 @@ function playFx(list){
   return new Promise(res=>{
     if(!list.length||SPEED===0)return res();
     SKIP=false;const ov=$('skipfx');ov.style.display='block';$('skipall').style.display='block';
-    let i=0,busy=false;
-    const done=()=>{$('fx').style.display='none';ov.style.display='none';$('skipall').style.display='none';ov.onclick=null;res()};
+    let i=0,tm=0;
+    const done=()=>{clearTimeout(tm);$('fx').style.display='none';ov.style.display='none';$('skipall').style.display='none';$('fx').onclick=null;res()};
+    const auto=ms=>{clearTimeout(tm);const w=()=>{if($('sheet').style.display==='block'||$('zoom').style.display==='flex'||PEEK){tm=setTimeout(w,300);return}step()};tm=setTimeout(w,ms)};
     const step=()=>{
+      clearTimeout(tm);
       if(i>=list.length)return done();
       const c=list[i++];const el=$('fx');
       el.className=c.con===UI.human?'me':'opp';
       el.innerHTML=(c.noCard?'':'<div class="big">'+tile(c.code?{code:c.code,pos:1}:null,false)+'</div>')+
-        '<div class="cap'+(c.phase?' ph':'')+(c.big?' bigcap':'')+'">'+esc((c.noCard?'':who(c.con)+' · ')+(c.code?nm(c.code)+' · ':'')+c.txt)+'</div>'+(c.text?'<div class="ftxt">'+esc(c.text)+'</div>':'')+'<div class="tapn">tap to continue</div>';
-      el.style.display='flex';
+        '<div class="cap'+(c.phase?' ph':'')+(c.big?' bigcap':'')+'">'+esc((c.noCard?'':who(c.con)+' · ')+(c.code?nm(c.code)+' · ':'')+c.txt)+'</div>'+(c.text?'<div class="ftxt">'+esc(c.text)+'</div>':'')+(c.phase?'':'<div class="tapn">tap here for next ▶ — the board behind is tappable</div>');
+      el.style.display='flex';if(c.phase)auto(c.big?1100:800);
     };
-    ov.onclick=()=>{step()};
+    $('fx').onclick=()=>{step()};
     $('skipall').onclick=e=>{e.stopPropagation();GSKIP=true;i=list.length;done()};
     step();
   });
@@ -537,9 +540,9 @@ async function onPrompt(m){
   processEvents(m.events,m.board);
   const frames=m.frames||[];
   if(SPEED&&frames.some(f=>buildFx(f.events,null).length)){
-    closeSheet();$('actbar').innerHTML='<div class="hint">Playing out actions… (tap to continue)</div>';
+    closeSheet();$('actbar').innerHTML='<div class="hint">Playing out… tap the popup for next · tap any card to look</div>';
     if(!UI.board){const E=()=>({mz:Array(7).fill(null),sz:Array(8).fill(null),hand:[],gy:[],rm:[],extra:[],deck:40});UI.board={lp:[8000,8000],phase:0,tp:0,turn:0,players:[E(),E()]};renderBoard()}
-    await sleep(600);GSKIP=false;
+    await sleep(600);GSKIP=false;UI.playing=true;
     for(const f of frames){
       if(GSKIP)break;
       const fx=buildFx(f.events,UI.board);
@@ -548,6 +551,7 @@ async function onPrompt(m){
       if(fx.length){if(LASTANIM)await sleep(LASTANIM);await playFx(fx)}
       else if(f.events.some(e=>e.t==='MOVE'||e.t==='DAMAGE'||e.t==='DRAW'||e.t==='POS_CHANGE'))await sleep(380);
     }
+    UI.playing=false;
   }
   UI.board=m.board;UI.sel=m.sel||null;UI.last=UI.sel;UI.picks=new Set();
   renderBoard();
@@ -728,15 +732,17 @@ function renderPrompt(){
     case'unsel':pickUnsel(s,title);break;
     case'chain':{
       if(!s.items.length){ans({index:null});return}
+      if(s.forced&&s.items.length===1){toast('Mandatory effect: '+(s.items[0].loc===32?'banished-card timer (e.g. Gold Sarcophagus)':nm(s.items[0].code)),1800);ans({index:0});return}
       const kindOf=c=>{const k=EFT[c.desc];if(k)return k;const i=CI[c.code]||{};return(i.cat==='Spell'||i.cat==='Trap')?'A':'?'};
       const KL={T:'Trigger effect',Q:'Quick effect',I:'Ignition effect',A:'Card activation','?':''};
       const ks=s.items.map(kindOf),allT=ks.every(k=>k==='T');
-      const ttl=s.forced?'Your effect triggers':allT?'Activate trigger effect?':'Respond with a card?';
-      let h='<h3>'+esc(ttl)+'</h3><div class="sub">'+esc(UI.log.slice(-2).join('\n'))+'\n'+(s.forced?'This effect is mandatory — choose which to resolve first.':allT?'Optional trigger effect — not a response to anything.':'You can respond with:')+'</div>';
-      h+=s.items.map((c,i)=>{const d=descLabel(c.desc);return'<div class="item" data-i="'+i+'"><div class="mt">'+tile({code:c.code},false)+'</div><div class="tx"><b>'+esc(nm(c.code))+'</b><span>'+esc((KL[ks[i]]?KL[ks[i]]+' · ':'')+(d||locText(c)))+'</span></div></div>'}).join('');
+      const ttl=s.forced?'Mandatory effect':allT?'Activate trigger effect?':'Respond with a card?';
+      let h='<h3>'+esc(ttl)+'</h3><div class="sub">'+esc(UI.log.slice(-2).map(l=>l.s).join('\n'))+'\n'+(s.forced?'Something must resolve now. Items marked ⏳ are automatic timers (e.g. Gold Sarcophagus’s banished card) — pick one; you can’t pass.':allT?'Optional trigger effect — not a response to anything.':'You can respond with:')+'</div>';
+      h+=s.items.map((c,i)=>{const d=descLabel(c.desc);return'<div class="item" data-i="'+i+'"><div class="mt">'+tile({code:c.code},false)+'</div><div class="tx"><b>'+esc((s.forced&&c.loc===32?'⏳ ':'')+nm(c.code))+'</b><span>'+esc(s.forced&&c.loc===32?'Automatic timer on a banished card (Gold Sarcophagus: it returns to your hand on your 2nd Standby Phase)':(KL[ks[i]]?KL[ks[i]]+' · ':'')+(d||locText(c)))+'</span></div></div>'}).join('');
       if(!s.forced)h+='<div class="btns"><button data-pass>'+(allT?"Don't activate":"Don't chain")+'</button></div>';
       showSheet(h);
       $('sheet').querySelectorAll('.item').forEach(e=>e.onclick=()=>{const it=s.items[+e.dataset.i];
+        if(s.forced&&it.loc===32){ans({index:it.i});return}
         showSheet('<h3>Confirm activation</h3><div class="sub">'+(allT?'Activate this effect?':'Activate this card in response?')+'</div>'+cardDetail({code:it.code})+'<div class="sub" style="color:var(--acc)">'+esc(descLabel(it.desc))+'</div><div class="btns"><button class="pri" data-yes>Yes, activate</button><button data-no>Back</button></div>');
         $('sheet').querySelector('[data-yes]').onclick=()=>ans({index:it.i});$('sheet').querySelector('[data-no]').onclick=()=>renderPrompt();});
       const pb=$('sheet').querySelector('[data-pass]');if(pb)pb.onclick=()=>ans({index:null});
@@ -746,7 +752,7 @@ function renderPrompt(){
       if(!t&&s.effect)t='Use the effect of "'+nm(s.code)+'"?';
       if(!t)t=title||'Yes or no?';
       t=t.replace(/%ls/g,nm(s.code||0));
-      showSheet('<h3>'+esc(t)+'</h3><div class="sub" style="color:var(--acc)">Just happened: '+esc(UI.log.filter(l=>!/Phase$/.test(l)).slice(-2).join(' → '))+'</div>'+(s.effect?cardDetail({code:s.code}):'')+'<div class="btns"><button class="pri" data-y="1">Yes</button><button data-y="0">No</button></div>');
+      showSheet('<h3>'+esc(t)+'</h3><div class="sub" style="color:var(--acc)">Just happened: '+esc(UI.log.map(l=>l.s).filter(l=>!/Phase$/.test(l)).slice(-2).join(' → '))+'</div>'+(s.effect?cardDetail({code:s.code}):'')+'<div class="btns"><button class="pri" data-y="1">Yes</button><button data-y="0">No</button></div>');
       $('sheet').querySelectorAll('[data-y]').forEach(b=>b.onclick=()=>ans({yes:b.dataset.y==='1'}));
       setBar('<div class="hint">Waiting for your choice…</div>');break}
     case'option':
@@ -898,7 +904,7 @@ function condHint(c,me,op,loc){
   }
   return''}
 function whyNot(c,con,loc,seq){
-  const b=UI.board,s=UI.sel;if(!b||!c)return'';
+  const b=UI.board,s=UI.sel;if(!b||!c||UI.playing)return'';
   const i=CI[c.code]||{};
   if(con!==UI.human)return c.code?'Opponent’s card — you can only read it.':'';
   if(!c.code||UI.over)return'';
